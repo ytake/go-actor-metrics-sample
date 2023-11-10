@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package shared;
+
+option go_package = "github.com/ytake/go-actor-metrics-sample/shared";
+
+message FizzBuzzRequest {
+  int64 number = 1;
+}
+
+message FizzBuzzResponse {
+  int64 number = 1;
+  string Message = 2;
+}
+
+message FizzRequest {
+  int64 number = 1;
+  string Message = 2;
+}
+
+message FizzResponse {
+  int64 number = 1;
+  string Message = 2;
+}
+
+message BuzzRequest {
+  int64 number = 1;
+  string Message = 2;
+}
+
+message BuzzResponse {
+  int64 number = 1;
+  string Message = 2;
+}
+
+
+service FizzService {
+  rpc SayFizz (FizzRequest) returns (FizzResponse) {}
+}
+
+service BuzzService {
+  rpc SayBuzz (BuzzRequest) returns (BuzzResponse) {}
+}
