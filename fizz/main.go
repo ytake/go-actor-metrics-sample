@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 
 	console "github.com/asynkron/goconsole"
 	"github.com/asynkron/protoactor-go/actor"
@@ -15,15 +16,16 @@ import (
 	"github.com/ytake/go-actor-metrics-sample/shared"
 )
 
-// Fizz Grain / aka Virtual Actor
-type Fizz struct {
-	persistence.Mixin
+// FizzGrain / Virtual Actor
+type FizzGrain struct {
+	// persistence.Mixin
 }
 
-func (s *Fizz) Init(ctx cluster.GrainContext)      {}
-func (s *Fizz) Terminate(ctx cluster.GrainContext) {}
+func (s *FizzGrain) Init(ctx cluster.GrainContext)      {}
+func (s *FizzGrain) Terminate(ctx cluster.GrainContext) {}
 
-func (s *Fizz) ReceiveDefault(ctx cluster.GrainContext) {
+func (s *FizzGrain) ReceiveDefault(ctx cluster.GrainContext) {
+	fmt.Println(ctx.Message())
 	switch ctx.Message().(type) {
 	case *persistence.RequestSnapshot:
 		// Handle snapshot request
@@ -32,14 +34,17 @@ func (s *Fizz) ReceiveDefault(ctx cluster.GrainContext) {
 	}
 }
 
-func (s *Fizz) SayFizz(request *shared.FizzRequest, ctx cluster.GrainContext) (*shared.FizzResponse, error) {
+func (s *FizzGrain) SayFizz(request *shared.FizzRequest, ctx cluster.GrainContext) (*shared.FizzResponse, error) {
+	fmt.Printf("Received SayFizz with message '%v'\n", request.Message)
+	sender := ctx.Sender()
+	log.Printf("Received Ping call from sender. Address: %s. ID: %s.", sender.GetAddress(), sender.GetId())
 	return &shared.FizzResponse{Message: "Fizz"}, nil
 }
 
 func main() {
 
 	ctx := context.Background()
-	exporter, err := metrics.NewOpenTelemetry("e", "s").Exporter(ctx)
+	exporter, err := metrics.NewOpenTelemetry("127.0.0.1:4318", "s").Exporter(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -49,9 +54,14 @@ func main() {
 	provider, _ := zk.New([]string{"localhost:2181", "localhost:2182", "localhost:2183"})
 	lookup := disthash.New()
 	config := remote.Configure("localhost", 0)
-	clusterConfig := cluster.Configure("fizzbuzz-cluster", provider, lookup, config)
+	clusterConfig := cluster.Configure("fizzbuzz-cluster", provider, lookup, config,
+		cluster.WithKinds(shared.NewFizzServiceKind(func() shared.FizzService {
+			return &FizzGrain{}
+		}, 0)))
+
 	c := cluster.New(system, clusterConfig)
 	c.StartMember()
 	fmt.Print("\nBoot other nodes and press Enter\n")
 	_, _ = console.ReadLine()
+	c.Shutdown(true)
 }
