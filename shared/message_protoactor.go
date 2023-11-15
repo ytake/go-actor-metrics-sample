@@ -71,7 +71,7 @@ type FizzService interface {
 	Init(ctx cluster.GrainContext)
 	Terminate(ctx cluster.GrainContext)
 	ReceiveDefault(ctx cluster.GrainContext)
-	SayFizz(*FizzRequest, cluster.GrainContext) (*FizzResponse, error)
+	SayFizzBuzz(*FizzBuzzRequest, cluster.GrainContext) (*FizzBuzzResponse, error)
 	
 }
 
@@ -81,8 +81,8 @@ type FizzServiceGrainClient struct {
 	cluster *cluster.Cluster
 }
 
-// SayFizz requests the execution on to the cluster with CallOptions
-func (g *FizzServiceGrainClient) SayFizz(r *FizzRequest, opts ...cluster.GrainCallOption) (*FizzResponse, error) {
+// SayFizzBuzz requests the execution on to the cluster with CallOptions
+func (g *FizzServiceGrainClient) SayFizzBuzz(r *FizzBuzzRequest, opts ...cluster.GrainCallOption) (*FizzBuzzResponse, error) {
 	bytes, err := proto.Marshal(r)
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func (g *FizzServiceGrainClient) SayFizz(r *FizzRequest, opts ...cluster.GrainCa
 	}
 	switch msg := resp.(type) {
 	case *cluster.GrainResponse:
-		result := &FizzResponse{}
+		result := &FizzBuzzResponse{}
 		err = proto.Unmarshal(msg.MessageData, result)
 		if err != nil {
 			return nil, err
@@ -137,15 +137,15 @@ func (a *FizzServiceActor) Receive(ctx actor.Context) {
 	case *cluster.GrainRequest:
 		switch msg.MethodIndex {
 		case 0:
-			req := &FizzRequest{}
+			req := &FizzBuzzRequest{}
 			err := proto.Unmarshal(msg.MessageData, req)
 			if err != nil {
-				plog.Error("SayFizz(FizzRequest) proto.Unmarshal failed.", logmod.Error(err))
+				plog.Error("SayFizzBuzz(FizzBuzzRequest) proto.Unmarshal failed.", logmod.Error(err))
 				resp := &cluster.GrainErrorResponse{Err: err.Error()}
 				ctx.Respond(resp)
 				return
 			}
-			r0, err := a.inner.SayFizz(req, a.ctx)
+			r0, err := a.inner.SayFizzBuzz(req, a.ctx)
 			if err != nil {
 				resp := &cluster.GrainErrorResponse{Err: err.Error()}
 				ctx.Respond(resp)
@@ -153,7 +153,7 @@ func (a *FizzServiceActor) Receive(ctx actor.Context) {
 			}
 			bytes, err := proto.Marshal(r0)
 			if err != nil {
-				plog.Error("SayFizz(FizzRequest) proto.Marshal failed", logmod.Error(err))
+				plog.Error("SayFizzBuzz(FizzBuzzRequest) proto.Marshal failed", logmod.Error(err))
 				resp := &cluster.GrainErrorResponse{Err: err.Error()}
 				ctx.Respond(resp)
 				return
@@ -212,7 +212,7 @@ type BuzzService interface {
 	Init(ctx cluster.GrainContext)
 	Terminate(ctx cluster.GrainContext)
 	ReceiveDefault(ctx cluster.GrainContext)
-	SayBuzz(*BuzzRequest, cluster.GrainContext) (*BuzzResponse, error)
+	SayBuzz(*FizzBuzzRequest, cluster.GrainContext) (*FizzBuzzResponse, error)
 	
 }
 
@@ -223,7 +223,7 @@ type BuzzServiceGrainClient struct {
 }
 
 // SayBuzz requests the execution on to the cluster with CallOptions
-func (g *BuzzServiceGrainClient) SayBuzz(r *BuzzRequest, opts ...cluster.GrainCallOption) (*BuzzResponse, error) {
+func (g *BuzzServiceGrainClient) SayBuzz(r *FizzBuzzRequest, opts ...cluster.GrainCallOption) (*FizzBuzzResponse, error) {
 	bytes, err := proto.Marshal(r)
 	if err != nil {
 		return nil, err
@@ -235,7 +235,7 @@ func (g *BuzzServiceGrainClient) SayBuzz(r *BuzzRequest, opts ...cluster.GrainCa
 	}
 	switch msg := resp.(type) {
 	case *cluster.GrainResponse:
-		result := &BuzzResponse{}
+		result := &FizzBuzzResponse{}
 		err = proto.Unmarshal(msg.MessageData, result)
 		if err != nil {
 			return nil, err
@@ -278,10 +278,10 @@ func (a *BuzzServiceActor) Receive(ctx actor.Context) {
 	case *cluster.GrainRequest:
 		switch msg.MethodIndex {
 		case 0:
-			req := &BuzzRequest{}
+			req := &FizzBuzzRequest{}
 			err := proto.Unmarshal(msg.MessageData, req)
 			if err != nil {
-				plog.Error("SayBuzz(BuzzRequest) proto.Unmarshal failed.", logmod.Error(err))
+				plog.Error("SayBuzz(FizzBuzzRequest) proto.Unmarshal failed.", logmod.Error(err))
 				resp := &cluster.GrainErrorResponse{Err: err.Error()}
 				ctx.Respond(resp)
 				return
@@ -294,7 +294,7 @@ func (a *BuzzServiceActor) Receive(ctx actor.Context) {
 			}
 			bytes, err := proto.Marshal(r0)
 			if err != nil {
-				plog.Error("SayBuzz(BuzzRequest) proto.Marshal failed", logmod.Error(err))
+				plog.Error("SayBuzz(FizzBuzzRequest) proto.Marshal failed", logmod.Error(err))
 				resp := &cluster.GrainErrorResponse{Err: err.Error()}
 				ctx.Respond(resp)
 				return

@@ -9,10 +9,15 @@ import (
 	"github.com/asynkron/protoactor-go/cluster"
 	"github.com/asynkron/protoactor-go/cluster/clusterproviders/zk"
 	"github.com/asynkron/protoactor-go/cluster/identitylookup/disthash"
+	plog "github.com/asynkron/protoactor-go/log"
 	"github.com/asynkron/protoactor-go/remote"
+	"github.com/asynkron/protoactor-go/stream"
+	"github.com/ytake/go-actor-metrics-sample/clog"
 	"github.com/ytake/go-actor-metrics-sample/metrics"
 	"github.com/ytake/go-actor-metrics-sample/shared"
 )
+
+const rangeTo = 100
 
 func main() {
 
@@ -21,7 +26,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
+	clog.SetLogLevel(plog.ErrorLevel)
 	system := actor.NewActorSystemWithConfig(
 		actor.Configure(actor.WithMetricProviders(exporter)))
 	provider, _ := zk.New([]string{"localhost:2181", "localhost:2182", "localhost:2183"})
@@ -35,33 +40,38 @@ func main() {
 	fmt.Print("\nBoot other nodes and press Enter\n")
 	_, _ = console.ReadLine()
 
-	fizzbuzz := actor.PropsFromProducer(func() actor.Actor {
-		return &FizzBuzz{
-			system: system,
+	p := stream.NewTypedStream[*shared.FizzBuzzResponse](system)
+	go func() {
+		fizzbuzz := actor.PropsFromProducer(func() actor.Actor {
+			return &FizzBuzz{
+				system: system,
+				pipe:   p.PID(),
+			}
+		})
+		pid := system.Root.Spawn(fizzbuzz)
+		for v := range [rangeTo]int64{} {
+			system.Root.Send(pid, &shared.FizzBuzzRequest{Number: int64(v + 1)})
 		}
-	})
-	pid := system.Root.Spawn(fizzbuzz)
-	system.Root.Send(pid, &shared.FizzRequest{
-		Message: "hello",
-	})
+	}()
+	for range [rangeTo]int{} {
+		fmt.Println(<-p.C())
+	}
 	console.ReadLine()
 }
 
 type FizzBuzz struct {
 	system *actor.ActorSystem
+	pipe   *actor.PID
 }
 
 func (state *FizzBuzz) Receive(ctx actor.Context) {
-	switch ctx.Message().(type) {
-	case *shared.FizzRequest:
+	switch msg := ctx.Message().(type) {
+	case *shared.FizzBuzzRequest:
 		client := shared.GetFizzServiceGrainClient(
 			cluster.GetCluster(state.system), "grain1")
-		res, _ := client.SayFizz(&shared.FizzRequest{
-			Message: "hello",
+		res, _ := client.SayFizzBuzz(&shared.FizzBuzzRequest{
+			Number: msg.Number,
 		})
-		fmt.Printf("Response1: %v\n", res)
-		fmt.Println()
-	case *shared.FizzResponse:
-		fmt.Printf("Response2: %v\n", ctx.Message())
+		ctx.Send(state.pipe, res)
 	}
 }

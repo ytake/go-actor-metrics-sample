@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	console "github.com/asynkron/goconsole"
 	"github.com/asynkron/protoactor-go/actor"
@@ -16,27 +15,25 @@ import (
 	"github.com/ytake/go-actor-metrics-sample/shared"
 )
 
-// FizzGrain / Virtual Actor
-type FizzGrain struct{}
+// BuzzGrain / Virtual Actor
+type BuzzGrain struct{}
 
-func (s *FizzGrain) Init(ctx cluster.GrainContext)           {}
-func (s *FizzGrain) Terminate(ctx cluster.GrainContext)      {}
-func (s *FizzGrain) ReceiveDefault(ctx cluster.GrainContext) {}
+func (s *BuzzGrain) Init(ctx cluster.GrainContext)           {}
+func (s *BuzzGrain) Terminate(ctx cluster.GrainContext)      {}
+func (s *BuzzGrain) ReceiveDefault(ctx cluster.GrainContext) {}
 
-func (s *FizzGrain) SayFizzBuzz(request *shared.FizzBuzzRequest, ctx cluster.GrainContext) (*shared.FizzBuzzResponse, error) {
-	r := &shared.FizzBuzzRequest{Message: ""}
-	r.Number = request.Number
-	if request.Number%3 == 0 {
-		r.Message = "Fizz"
+func (s *BuzzGrain) SayBuzz(request *shared.FizzBuzzRequest, ctx cluster.GrainContext) (*shared.FizzBuzzResponse, error) {
+	response := &shared.FizzBuzzResponse{Message: request.Message}
+	response.Number = request.Number
+	if request.Number%5 == 0 {
+		response.Message = response.Message + "Buzz"
 	}
-	client := shared.GetBuzzServiceGrainClient(cluster.GetCluster(ctx.ActorSystem()), "grain2")
-	return client.SayBuzz(r)
+	return response, nil
 }
 
 func main() {
-
 	ctx := context.Background()
-	exporter, err := metrics.NewOpenTelemetry("127.0.0.1:4318", "b").Exporter(ctx)
+	exporter, err := metrics.NewOpenTelemetry("127.0.0.1:4318", "s").Exporter(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -47,13 +44,11 @@ func main() {
 	lookup := disthash.New()
 	config := remote.Configure("localhost", 0)
 	clusterConfig := cluster.Configure("fizzbuzz-cluster", provider, lookup, config,
-		cluster.WithKinds(shared.NewFizzServiceKind(func() shared.FizzService {
-			return &FizzGrain{}
+		cluster.WithKinds(shared.NewBuzzServiceKind(func() shared.BuzzService {
+			return &BuzzGrain{}
 		}, 100)))
-
 	c := cluster.New(system, clusterConfig)
 	c.StartMember()
-	fmt.Print("\nBoot other nodes and press Enter\n")
 	_, _ = console.ReadLine()
 	c.Shutdown(true)
 }
