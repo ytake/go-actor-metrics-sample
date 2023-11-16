@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 
 	console "github.com/asynkron/goconsole"
 	"github.com/asynkron/protoactor-go/actor"
@@ -33,9 +34,12 @@ func (s *BuzzGrain) SayBuzz(request *shared.FizzBuzzRequest, ctx cluster.GrainCo
 
 func main() {
 	ctx := context.Background()
-	exporter, err := metrics.NewOpenTelemetry("127.0.0.1:4318", "s").Exporter(ctx)
+	exporter, err := metrics.NewNrOpenTelemetry(
+		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		"buzz",
+		os.Getenv("NR_API_KEY")).Exporter(ctx)
 	if err != nil {
-		panic(err)
+		os.Exit(1)
 	}
 	clog.SetLogLevel(plog.ErrorLevel)
 	system := actor.NewActorSystemWithConfig(

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	console "github.com/asynkron/goconsole"
 	"github.com/asynkron/protoactor-go/actor"
@@ -22,7 +23,10 @@ const rangeTo = 100
 func main() {
 
 	ctx := context.Background()
-	exporter, err := metrics.NewOpenTelemetry("127.0.0.1:4318", "host").Exporter(ctx)
+	exporter, err := metrics.NewNrOpenTelemetry(
+		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		"actor-host",
+		os.Getenv("NR_API_KEY")).Exporter(ctx)
 	if err != nil {
 		panic(err)
 	}

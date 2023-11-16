@@ -11,26 +11,32 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 )
 
-type OpenTelemetry struct {
+type NrOpenTelemetry struct {
 	endpoint  string
 	attribute []attribute.KeyValue
+	apiKey    string
 }
 
-// NewOpenTelemetry returns OpenTelemetry
-func NewOpenTelemetry(endpoint, serviceName string) *OpenTelemetry {
-	return &OpenTelemetry{
+// NewNrOpenTelemetry returns OpenTelemetry for newrelic
+func NewNrOpenTelemetry(endpoint, serviceName, apiKey string) *NrOpenTelemetry {
+	return &NrOpenTelemetry{
 		endpoint: endpoint,
 		attribute: []attribute.KeyValue{
 			attribute.String("service.name", serviceName),
 		},
+		apiKey: apiKey,
 	}
 }
 
 // Exporter returns metric.MeterProvider
-func (o *OpenTelemetry) Exporter(ctx context.Context) (*metric.MeterProvider, error) {
+func (o *NrOpenTelemetry) Exporter(ctx context.Context) (*metric.MeterProvider, error) {
 	exporter, err := otlpmetrichttp.New(ctx,
+		otlpmetrichttp.WithCompression(otlpmetrichttp.GzipCompression),
 		otlpmetrichttp.WithEndpoint(o.endpoint),
-		otlpmetrichttp.WithInsecure())
+		otlpmetrichttp.WithHeaders(map[string]string{
+			"api-key": o.apiKey,
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
