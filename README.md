@@ -2,6 +2,13 @@
 
 Proto Actorを使ったアクターシステムを監視するためのサンプルです。
 
+```mermaid
+graph LR
+    client[Client Actor] -->|Accesses| fizzGrain[Fizz Grain]
+    fizzGrain -->|Accesses| buzzGrain[Buzz Grain]
+    
+```
+
 ```bash
 $ export OTEL_EXPORTER_OTLP_ENDPOINT=your_endpoint
 $ export NR_API_KEY=your_api_key
