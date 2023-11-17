@@ -41,9 +41,9 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
-	clog.SetLogLevel(plog.ErrorLevel)
 	system := actor.NewActorSystemWithConfig(
 		actor.Configure(actor.WithMetricProviders(exporter)))
+	clog.SetLogLevel(plog.ErrorLevel)
 	provider, _ := zk.New([]string{"localhost:2181", "localhost:2182", "localhost:2183"})
 	lookup := disthash.New()
 	config := remote.Configure("localhost", 0)

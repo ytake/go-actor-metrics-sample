@@ -43,7 +43,6 @@ func main() {
 
 	fmt.Print("\nBoot other nodes and press Enter\n")
 	_, _ = console.ReadLine()
-
 	p := stream.NewTypedStream[*shared.FizzBuzzResponse](system)
 	go func() {
 		fizzbuzz := actor.PropsFromProducer(func() actor.Actor {
@@ -60,7 +59,7 @@ func main() {
 	for range [rangeTo]int{} {
 		fmt.Println(<-p.C())
 	}
-	console.ReadLine()
+	_, _ = console.ReadLine()
 }
 
 type FizzBuzz struct {

@@ -34,7 +34,6 @@ func (s *FizzGrain) SayFizzBuzz(request *shared.FizzBuzzRequest, ctx cluster.Gra
 }
 
 func main() {
-
 	ctx := context.Background()
 	exporter, err := metrics.NewNrOpenTelemetry(
 		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
@@ -43,9 +42,8 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
+	system := actor.NewActorSystemWithConfig(actor.Configure(actor.WithMetricProviders(exporter)))
 	clog.SetLogLevel(plog.ErrorLevel)
-	system := actor.NewActorSystemWithConfig(
-		actor.Configure(actor.WithMetricProviders(exporter)))
 	provider, _ := zk.New([]string{"localhost:2181", "localhost:2182", "localhost:2183"})
 	lookup := disthash.New()
 	config := remote.Configure("localhost", 0)
