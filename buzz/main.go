@@ -34,10 +34,13 @@ func (s *BuzzGrain) SayBuzz(request *shared.FizzBuzzRequest, ctx cluster.GrainCo
 
 func main() {
 	ctx := context.Background()
+	// docker環境に送信する場合は下記のように設定します
+	// exporter, err := metrics.NewOpenTelemetry("127.0.0.1:4318", "actor-host").Exporter(ctx)
+	// NewRelicに送信する場合は下記のように設定します
 	exporter, err := metrics.NewNrOpenTelemetry(
 		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		"buzz",
-		os.Getenv("NR_API_KEY")).Exporter(ctx)
+		os.Getenv("NR_API_KEY"),
+		"actor-host").Exporter(ctx)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -53,6 +56,7 @@ func main() {
 		}, 100)))
 	c := cluster.New(system, clusterConfig)
 	c.StartMember()
+
 	_, _ = console.ReadLine()
 	c.Shutdown(true)
 }

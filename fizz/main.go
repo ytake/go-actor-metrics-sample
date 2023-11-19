@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	console "github.com/asynkron/goconsole"
@@ -19,9 +20,17 @@ import (
 // FizzGrain / Virtual Actor
 type FizzGrain struct{}
 
-func (s *FizzGrain) Init(ctx cluster.GrainContext)           {}
-func (s *FizzGrain) Terminate(ctx cluster.GrainContext)      {}
-func (s *FizzGrain) ReceiveDefault(ctx cluster.GrainContext) {}
+func (s *FizzGrain) Init(ctx cluster.GrainContext)      {}
+func (s *FizzGrain) Terminate(ctx cluster.GrainContext) {}
+
+// ReceiveDefault is the default handler.
+// gRPCではなく、通常のメッセージを受信する場合はこちらを利用します
+func (s *FizzGrain) ReceiveDefault(ctx cluster.GrainContext) {
+	switch msg := ctx.Message().(type) {
+	case *shared.FizzBuzzRequest:
+		fmt.Println(msg)
+	}
+}
 
 func (s *FizzGrain) SayFizzBuzz(request *shared.FizzBuzzRequest, ctx cluster.GrainContext) (*shared.FizzBuzzResponse, error) {
 	r := &shared.FizzBuzzRequest{Message: ""}
@@ -35,10 +44,13 @@ func (s *FizzGrain) SayFizzBuzz(request *shared.FizzBuzzRequest, ctx cluster.Gra
 
 func main() {
 	ctx := context.Background()
+	// docker環境に送信する場合は下記のように設定します
+	// exporter, err := metrics.NewOpenTelemetry("127.0.0.1:4318", "actor-host").Exporter(ctx)
+	// NewRelicに送信する場合は下記のように設定します
 	exporter, err := metrics.NewNrOpenTelemetry(
 		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		"fizz",
-		os.Getenv("NR_API_KEY")).Exporter(ctx)
+		os.Getenv("NR_API_KEY"),
+		"actor-host").Exporter(ctx)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -54,6 +66,7 @@ func main() {
 
 	c := cluster.New(system, clusterConfig)
 	c.StartMember()
+
 	_, _ = console.ReadLine()
 	c.Shutdown(true)
 }

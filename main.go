@@ -23,13 +23,17 @@ const rangeTo = 100
 func main() {
 
 	ctx := context.Background()
+	// docker環境に送信する場合は下記のように設定します
+	// exporter, err := metrics.NewOpenTelemetry("127.0.0.1:4318", "actor-host").Exporter(ctx)
+	// NewRelicに送信する場合は下記のように設定します
 	exporter, err := metrics.NewNrOpenTelemetry(
 		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		"actor-host",
-		os.Getenv("NR_API_KEY")).Exporter(ctx)
+		os.Getenv("NR_API_KEY"),
+		"actor-host").Exporter(ctx)
 	if err != nil {
-		panic(err)
+		os.Exit(1)
 	}
+
 	clog.SetLogLevel(plog.ErrorLevel)
 	system := actor.NewActorSystemWithConfig(
 		actor.Configure(actor.WithMetricProviders(exporter)))
@@ -53,7 +57,12 @@ func main() {
 		})
 		pid := system.Root.Spawn(fizzbuzz)
 		for v := range [rangeTo]int64{} {
+			// gRPC を介してメッセージを送信します
 			system.Root.Send(pid, &shared.FizzBuzzRequest{Number: int64(v + 1)})
+			// 標準的なメッセージを送信する場合は下記のようにPIDを指定し、利用できます
+			// クラスタの場合は直接クラスタのメンバーのPIDを指定します
+			// system.Root.Send(c.Get("grain1", "FizzService"),
+			//	&shared.FizzBuzzRequest{Number: int64(v + 1)})
 		}
 	}()
 	for range [rangeTo]int{} {
