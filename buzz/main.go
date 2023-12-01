@@ -34,9 +34,9 @@ func (s *BuzzGrain) SayBuzz(request *shared.BuzzRequest, _ cluster.GrainContext)
 func main() {
 	ctx := context.Background()
 	// docker環境に送信する場合は下記のように設定します
-	// exporter, err := metrics.NewOpenTelemetry("127.0.0.1:4318", "actor-host").Exporter(ctx)
+	// meterProvider, err := metrics.NewOpenTelemetry("127.0.0.1:4318", "buzz").Exporter(ctx)
 	// NewRelicに送信する場合は下記のように設定します
-	exporter, err := metrics.NewNrOpenTelemetry(
+	meterProvider, err := metrics.NewNrOpenTelemetry(
 		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		os.Getenv("NR_API_KEY"),
 		"buzz").Exporter(ctx)
@@ -45,7 +45,7 @@ func main() {
 	}
 	system := actor.NewActorSystemWithConfig(
 		actor.Configure(
-			actor.WithMetricProviders(exporter),
+			actor.WithMetricProviders(meterProvider),
 			actor.WithLoggerFactory(logger.New)))
 	provider, _ := consul.New()
 	lookup := disthash.New()

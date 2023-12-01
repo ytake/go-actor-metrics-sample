@@ -50,4 +50,3 @@ $ go run buzz/main.go
 ```bash
 $ go install github.com/asynkron/protoactor-go/protobuf/protoc-gen-gograinv2@dev 
 ```
-
