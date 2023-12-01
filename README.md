@@ -5,18 +5,7 @@ Proto Actorを使ったアクターシステムを監視するためのサンプ
 ```mermaid
 graph TB
     subgraph "Consul Cluster"
-        CA1[Consul Agent 1]
-        CA2[Consul Agent 2]
-        CA3[Consul Agent 3]
-        CS1[Consul Server 1]
-        CS2[Consul Server 2]
-        CSB[Consul Server Bootstrap]
-        CA1 --- CS1
-        CA2 --- CS2
-        CA3 --- CSB
-        CS1 --- CS2
-        CS2 --- CSB
-        CSB --- CS1
+        Consul[Consul Cluster]
     end
 
     subgraph "Proto Actor Cluster"
@@ -27,9 +16,9 @@ graph TB
         Client <-.->|gRPC| BuzzGrain
     end
 
-    CS1 --- Client
-    CS2 --- Client
-    CSB --- Client
+    Consul --- Client
+    Consul --- FizzGrain
+    Consul --- BuzzGrain
 ```
 
 ```bash
