@@ -4,26 +4,20 @@ package shared
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"time"
 
 	"github.com/asynkron/protoactor-go/actor"
 	"github.com/asynkron/protoactor-go/cluster"
-	logmod "github.com/asynkron/protoactor-go/log"
 	"google.golang.org/protobuf/proto"
 )
 
 var (
-	plog = logmod.New(logmod.InfoLevel, "[GRAIN][shared]")
-	_    = proto.Marshal
-	_    = fmt.Errorf
-	_    = math.Inf
+	_ = proto.Marshal
+	_ = fmt.Errorf
+	_ = math.Inf
 )
-
-// SetLogLevel sets the log level.
-func SetLogLevel(level logmod.Level) {
-	plog.SetLevel(level)
-}
 
 var xFizzServiceFactory func() FizzService
 
@@ -55,7 +49,7 @@ func GetFizzServiceKind(opts ...actor.PropsOption) *cluster.Kind {
 }
 
 // GetFizzServiceKind instantiates a new cluster.Kind for FizzService
-func NewFizzServiceKind(factory func() FizzService, timeout time.Duration ,opts ...actor.PropsOption) *cluster.Kind {
+func NewFizzServiceKind(factory func() FizzService, timeout time.Duration, opts ...actor.PropsOption) *cluster.Kind {
 	xFizzServiceFactory = factory
 	props := actor.PropsFromProducer(func() actor.Actor {
 		return &FizzServiceActor{
@@ -71,30 +65,29 @@ type FizzService interface {
 	Init(ctx cluster.GrainContext)
 	Terminate(ctx cluster.GrainContext)
 	ReceiveDefault(ctx cluster.GrainContext)
-	SayFizzBuzz(*FizzBuzzRequest, cluster.GrainContext) (*FizzBuzzResponse, error)
-	
+	SayFizz(*FizzRequest, cluster.GrainContext) (*FizzResponse, error)
 }
 
 // FizzServiceGrainClient holds the base data for the FizzServiceGrain
 type FizzServiceGrainClient struct {
-	Identity      string
-	cluster *cluster.Cluster
+	Identity string
+	cluster  *cluster.Cluster
 }
 
-// SayFizzBuzz requests the execution on to the cluster with CallOptions
-func (g *FizzServiceGrainClient) SayFizzBuzz(r *FizzBuzzRequest, opts ...cluster.GrainCallOption) (*FizzBuzzResponse, error) {
+// SayFizz requests the execution on to the cluster with CallOptions
+func (g *FizzServiceGrainClient) SayFizz(r *FizzRequest, opts ...cluster.GrainCallOption) (*FizzResponse, error) {
 	bytes, err := proto.Marshal(r)
 	if err != nil {
 		return nil, err
 	}
 	reqMsg := &cluster.GrainRequest{MethodIndex: 0, MessageData: bytes}
-	resp, err := g.cluster.Call(g.Identity, "FizzService", reqMsg, opts...)
+	resp, err := g.cluster.Request(g.Identity, "FizzService", reqMsg, opts...)
 	if err != nil {
 		return nil, err
 	}
 	switch msg := resp.(type) {
 	case *cluster.GrainResponse:
-		result := &FizzBuzzResponse{}
+		result := &FizzResponse{}
 		err = proto.Unmarshal(msg.MessageData, result)
 		if err != nil {
 			return nil, err
@@ -106,7 +99,6 @@ func (g *FizzServiceGrainClient) SayFizzBuzz(r *FizzBuzzRequest, opts ...cluster
 		return nil, errors.New("unknown response")
 	}
 }
-
 
 // FizzServiceActor represents the actor structure
 type FizzServiceActor struct {
@@ -127,7 +119,7 @@ func (a *FizzServiceActor) Receive(ctx actor.Context) {
 		if a.Timeout > 0 {
 			ctx.SetReceiveTimeout(a.Timeout)
 		}
-	case *actor.ReceiveTimeout:		
+	case *actor.ReceiveTimeout:
 		ctx.Poison(ctx.Self())
 	case *actor.Stopped:
 		a.inner.Terminate(a.ctx)
@@ -137,15 +129,15 @@ func (a *FizzServiceActor) Receive(ctx actor.Context) {
 	case *cluster.GrainRequest:
 		switch msg.MethodIndex {
 		case 0:
-			req := &FizzBuzzRequest{}
+			req := &FizzRequest{}
 			err := proto.Unmarshal(msg.MessageData, req)
 			if err != nil {
-				plog.Error("SayFizzBuzz(FizzBuzzRequest) proto.Unmarshal failed.", logmod.Error(err))
+				ctx.Logger().Error("[Grain] SayFizz(FizzRequest) proto.Unmarshal failed.", slog.Any("error", err))
 				resp := &cluster.GrainErrorResponse{Err: err.Error()}
 				ctx.Respond(resp)
 				return
 			}
-			r0, err := a.inner.SayFizzBuzz(req, a.ctx)
+			r0, err := a.inner.SayFizz(req, a.ctx)
 			if err != nil {
 				resp := &cluster.GrainErrorResponse{Err: err.Error()}
 				ctx.Respond(resp)
@@ -153,19 +145,19 @@ func (a *FizzServiceActor) Receive(ctx actor.Context) {
 			}
 			bytes, err := proto.Marshal(r0)
 			if err != nil {
-				plog.Error("SayFizzBuzz(FizzBuzzRequest) proto.Marshal failed", logmod.Error(err))
+				ctx.Logger().Error("[Grain] SayFizz(FizzRequest) proto.Marshal failed", slog.Any("error", err))
 				resp := &cluster.GrainErrorResponse{Err: err.Error()}
 				ctx.Respond(resp)
 				return
 			}
 			resp := &cluster.GrainResponse{MessageData: bytes}
 			ctx.Respond(resp)
-		
 		}
 	default:
 		a.inner.ReceiveDefault(a.ctx)
 	}
 }
+
 var xBuzzServiceFactory func() BuzzService
 
 // BuzzServiceFactory produces a BuzzService
@@ -196,7 +188,7 @@ func GetBuzzServiceKind(opts ...actor.PropsOption) *cluster.Kind {
 }
 
 // GetBuzzServiceKind instantiates a new cluster.Kind for BuzzService
-func NewBuzzServiceKind(factory func() BuzzService, timeout time.Duration ,opts ...actor.PropsOption) *cluster.Kind {
+func NewBuzzServiceKind(factory func() BuzzService, timeout time.Duration, opts ...actor.PropsOption) *cluster.Kind {
 	xBuzzServiceFactory = factory
 	props := actor.PropsFromProducer(func() actor.Actor {
 		return &BuzzServiceActor{
@@ -212,30 +204,29 @@ type BuzzService interface {
 	Init(ctx cluster.GrainContext)
 	Terminate(ctx cluster.GrainContext)
 	ReceiveDefault(ctx cluster.GrainContext)
-	SayBuzz(*FizzBuzzRequest, cluster.GrainContext) (*FizzBuzzResponse, error)
-	
+	SayBuzz(*BuzzRequest, cluster.GrainContext) (*BuzzResponse, error)
 }
 
 // BuzzServiceGrainClient holds the base data for the BuzzServiceGrain
 type BuzzServiceGrainClient struct {
-	Identity      string
-	cluster *cluster.Cluster
+	Identity string
+	cluster  *cluster.Cluster
 }
 
 // SayBuzz requests the execution on to the cluster with CallOptions
-func (g *BuzzServiceGrainClient) SayBuzz(r *FizzBuzzRequest, opts ...cluster.GrainCallOption) (*FizzBuzzResponse, error) {
+func (g *BuzzServiceGrainClient) SayBuzz(r *BuzzRequest, opts ...cluster.GrainCallOption) (*BuzzResponse, error) {
 	bytes, err := proto.Marshal(r)
 	if err != nil {
 		return nil, err
 	}
 	reqMsg := &cluster.GrainRequest{MethodIndex: 0, MessageData: bytes}
-	resp, err := g.cluster.Call(g.Identity, "BuzzService", reqMsg, opts...)
+	resp, err := g.cluster.Request(g.Identity, "BuzzService", reqMsg, opts...)
 	if err != nil {
 		return nil, err
 	}
 	switch msg := resp.(type) {
 	case *cluster.GrainResponse:
-		result := &FizzBuzzResponse{}
+		result := &BuzzResponse{}
 		err = proto.Unmarshal(msg.MessageData, result)
 		if err != nil {
 			return nil, err
@@ -247,7 +238,6 @@ func (g *BuzzServiceGrainClient) SayBuzz(r *FizzBuzzRequest, opts ...cluster.Gra
 		return nil, errors.New("unknown response")
 	}
 }
-
 
 // BuzzServiceActor represents the actor structure
 type BuzzServiceActor struct {
@@ -268,7 +258,7 @@ func (a *BuzzServiceActor) Receive(ctx actor.Context) {
 		if a.Timeout > 0 {
 			ctx.SetReceiveTimeout(a.Timeout)
 		}
-	case *actor.ReceiveTimeout:		
+	case *actor.ReceiveTimeout:
 		ctx.Poison(ctx.Self())
 	case *actor.Stopped:
 		a.inner.Terminate(a.ctx)
@@ -278,10 +268,10 @@ func (a *BuzzServiceActor) Receive(ctx actor.Context) {
 	case *cluster.GrainRequest:
 		switch msg.MethodIndex {
 		case 0:
-			req := &FizzBuzzRequest{}
+			req := &BuzzRequest{}
 			err := proto.Unmarshal(msg.MessageData, req)
 			if err != nil {
-				plog.Error("SayBuzz(FizzBuzzRequest) proto.Unmarshal failed.", logmod.Error(err))
+				ctx.Logger().Error("[Grain] SayBuzz(BuzzRequest) proto.Unmarshal failed.", slog.Any("error", err))
 				resp := &cluster.GrainErrorResponse{Err: err.Error()}
 				ctx.Respond(resp)
 				return
@@ -294,14 +284,13 @@ func (a *BuzzServiceActor) Receive(ctx actor.Context) {
 			}
 			bytes, err := proto.Marshal(r0)
 			if err != nil {
-				plog.Error("SayBuzz(FizzBuzzRequest) proto.Marshal failed", logmod.Error(err))
+				ctx.Logger().Error("[Grain] SayBuzz(BuzzRequest) proto.Marshal failed", slog.Any("error", err))
 				resp := &cluster.GrainErrorResponse{Err: err.Error()}
 				ctx.Respond(resp)
 				return
 			}
 			resp := &cluster.GrainResponse{MessageData: bytes}
 			ctx.Respond(resp)
-		
 		}
 	default:
 		a.inner.ReceiveDefault(a.ctx)

@@ -8,11 +8,10 @@ import (
 	console "github.com/asynkron/goconsole"
 	"github.com/asynkron/protoactor-go/actor"
 	"github.com/asynkron/protoactor-go/cluster"
-	"github.com/asynkron/protoactor-go/cluster/clusterproviders/zk"
+	"github.com/asynkron/protoactor-go/cluster/clusterproviders/consul"
 	"github.com/asynkron/protoactor-go/cluster/identitylookup/disthash"
-	plog "github.com/asynkron/protoactor-go/log"
 	"github.com/asynkron/protoactor-go/remote"
-	"github.com/ytake/go-actor-metrics-sample/clog"
+	"github.com/ytake/go-actor-metrics-sample/logger"
 	"github.com/ytake/go-actor-metrics-sample/metrics"
 	"github.com/ytake/go-actor-metrics-sample/shared"
 )
@@ -27,19 +26,18 @@ func (s *FizzGrain) Terminate(ctx cluster.GrainContext) {}
 // gRPCではなく、通常のメッセージを受信する場合はこちらを利用します
 func (s *FizzGrain) ReceiveDefault(ctx cluster.GrainContext) {
 	switch msg := ctx.Message().(type) {
-	case *shared.FizzBuzzRequest:
+	case *shared.FizzRequest:
 		fmt.Println(msg)
 	}
 }
 
-func (s *FizzGrain) SayFizzBuzz(request *shared.FizzBuzzRequest, ctx cluster.GrainContext) (*shared.FizzBuzzResponse, error) {
-	r := &shared.FizzBuzzRequest{Message: ""}
+func (s *FizzGrain) SayFizz(request *shared.FizzRequest, ctx cluster.GrainContext) (*shared.FizzResponse, error) {
+	r := &shared.FizzResponse{Message: ""}
 	r.Number = request.Number
 	if request.Number%3 == 0 {
 		r.Message = "Fizz"
 	}
-	client := shared.GetBuzzServiceGrainClient(cluster.GetCluster(ctx.ActorSystem()), "grain2")
-	return client.SayBuzz(r)
+	return r, nil
 }
 
 func main() {
@@ -50,13 +48,15 @@ func main() {
 	exporter, err := metrics.NewNrOpenTelemetry(
 		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		os.Getenv("NR_API_KEY"),
-		"actor-host").Exporter(ctx)
+		"fizz").Exporter(ctx)
 	if err != nil {
 		os.Exit(1)
 	}
-	system := actor.NewActorSystemWithConfig(actor.Configure(actor.WithMetricProviders(exporter)))
-	clog.SetLogLevel(plog.ErrorLevel)
-	provider, _ := zk.New([]string{"localhost:2181", "localhost:2182", "localhost:2183"})
+	system := actor.NewActorSystemWithConfig(
+		actor.Configure(
+			actor.WithMetricProviders(exporter),
+			actor.WithLoggerFactory(logger.New)))
+	provider, _ := consul.New()
 	lookup := disthash.New()
 	config := remote.Configure("localhost", 0)
 	clusterConfig := cluster.Configure("fizzbuzz-cluster", provider, lookup, config,
